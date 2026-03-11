@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, url_for, jsonify
+from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
@@ -6,7 +6,10 @@ import os
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///applications.db"
+
+# Database SQLite
+db_path = "/opt/render/project/src/applications.db"
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
@@ -39,18 +42,20 @@ def candidatura_prestigio():
 
 @app.route("/join-our-team/apply", methods=["POST"])
 def candidatura_prestigio_apply():
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not data:
+        data = request.form.to_dict(flat=True)
 
-    nome = (data.get("nome") or "").strip()
+    nome = (data.get("nome") or data.get("fullName") or "").strip()
     email = (data.get("email") or "").strip()
-    telefono = (data.get("telefono") or "").strip()
-    obiettivo = (data.get("obiettivo") or "").strip()
-    ruolo = (data.get("ruolo") or "").strip()
-    esperienza = (data.get("esperienza") or "").strip()
-    descrizione_esperienza = (data.get("descrizione_esperienza") or "").strip()
-    descrizione_personale = (data.get("descrizione_personale") or "").strip()
-    come_ci_ha_conosciuto = (data.get("come_ci_ha_conosciuto") or "").strip()
-    altro = (data.get("altro") or "").strip()
+    telefono = (data.get("telefono") or data.get("phone") or "").strip()
+    obiettivo = (data.get("obiettivo") or data.get("whatYouWant") or "").strip()
+    ruolo = (data.get("ruolo") or data.get("role") or "").strip()
+    esperienza = (data.get("esperienza") or data.get("hasExperience") or "").strip()
+    descrizione_esperienza = (data.get("descrizione_esperienza") or data.get("experienceSummary") or "").strip()
+    descrizione_personale = (data.get("descrizione_personale") or data.get("attitude") or "").strip()
+    come_ci_ha_conosciuto = (data.get("come_ci_ha_conosciuto") or data.get("howFound") or "").strip()
+    altro = (data.get("altro") or data.get("howFoundOther") or "").strip()
 
     if not nome or not email or not telefono or not ruolo or not esperienza:
         return jsonify({
@@ -58,26 +63,35 @@ def candidatura_prestigio_apply():
             "message": "Compila tutti i campi obbligatori."
         }), 400
 
-    app_job = JobApplication(
-        full_name=nome,
-        email=email,
-        phone=telefono,
-        what_you_want=obiettivo or None,
-        role=ruolo,
-        has_experience=esperienza,
-        experience_summary=descrizione_esperienza or None,
-        attitude=descrizione_personale or None,
-        how_found=come_ci_ha_conosciuto or None,
-        how_found_other=altro or None,
-    )
+    try:
+        app_job = JobApplication(
+            full_name=nome,
+            email=email,
+            phone=telefono,
+            what_you_want=obiettivo or None,
+            role=ruolo,
+            has_experience=esperienza,
+            experience_summary=descrizione_esperienza or None,
+            attitude=descrizione_personale or None,
+            how_found=come_ci_ha_conosciuto or None,
+            how_found_other=altro or None,
+        )
 
-    db.session.add(app_job)
-    db.session.commit()
+        db.session.add(app_job)
+        db.session.commit()
 
-    return jsonify({
-        "success": True,
-        "message": "Candidatura inviata con successo."
-    }), 200
+        return jsonify({
+            "success": True,
+            "message": "Candidatura inviata con successo."
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception("Errore durante il salvataggio della candidatura")
+        return jsonify({
+            "success": False,
+            "message": f"Errore server: {str(e)}"
+        }), 500
 
 
 @app.route("/admin", methods=["GET"])
