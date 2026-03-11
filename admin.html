@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Prestigio Argenti e Ori</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:       #b8922a;
+      --gold-light: #c9a84c;
+      --black:      #0d0d0d;
+      --dark:       #1c1c1c;
+      --cream:      #f0ebe2;
+      --white:      #fff;
+      --text:       #282828;
+      --muted:      #8a8880;
+      --border:     rgba(0,0,0,0.1);
+      --danger:     #b54a4a;
+    }
+
+    body {
+      background: var(--cream);
+      color: var(--text);
+      font-family: 'Jost', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ────────────────────────────── */
+    .topbar {
+      background: var(--black);
+      padding: 0.9rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    .topbar-logo {
+      height: 36px;
+      width: auto;
+      display: block;
+    }
+
+    .topbar-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(201,168,76,0.5);
+      font-weight: 300;
+      border-left: 1px solid rgba(201,168,76,0.2);
+      padding-left: 1.2rem;
+    }
+
+    .topbar-actions { display: flex; gap: 0.6rem; align-items: center; }
+
+    .btn {
+      font-family: 'Jost', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 0.5rem 1.1rem;
+      border: 1px solid rgba(201,168,76,0.35);
+      background: transparent;
+      color: var(--gold-light);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+      border-radius: 2px;
+    }
+    .btn:hover { background: var(--gold); color: #000; border-color: var(--gold); }
+
+    .btn-logout {
+      border-color: rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.38);
+    }
+    .btn-logout:hover {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    /* ── Container ──────────────────────────── */
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 5rem;
+    }
+
+    /* ── Stats ──────────────────────────────── */
+    .stats-bar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.8rem;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1rem 1.5rem;
+      min-width: 130px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+
+    .stat-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.2rem;
+      font-weight: 400;
+      color: var(--dark);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 0.28rem;
+      font-weight: 300;
+    }
+
+    /* ── Toolbar ────────────────────────────── */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+    }
+
+    .filters { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+
+    .filter-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-right: 0.3rem;
+    }
+
+    .filter-btn {
+      font-family: 'Jost', sans-serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.38rem 0.85rem;
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      border-radius: 2px;
+    }
+
+    .filter-btn.active,
+    .filter-btn:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(184,146,42,0.04);
+    }
+
+    /* ── Table ──────────────────────────────── */
+    .table-wrap {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow-x: auto;
+      box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead { border-bottom: 1px solid var(--border); }
+
+    th {
+      font-family: 'Jost', sans-serif;
+      font-size: 0.58rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.85rem 1rem;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+      vertical-align: middle;
+      color: var(--text);
+      font-size: 0.88rem;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(184,146,42,0.02); }
+    tr.highlighted td { background: rgba(184,146,42,0.035); }
+
+    .td-name { font-weight: 500; color: var(--dark); white-space: nowrap; }
+    .td-contact { color: var(--muted); font-size: 0.78rem; }
+    .td-date { color: var(--muted); font-size: 0.78rem; white-space: nowrap; }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      font-size: 0.58rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.5rem;
+      border-radius: 2px;
+      font-weight: 500;
+      border: 1px solid;
+      white-space: nowrap;
+    }
+    .badge-sales    { border-color: rgba(184,146,42,0.4); color: var(--gold); background: rgba(184,146,42,0.06); }
+    .badge-ecom     { border-color: rgba(70,140,200,0.35); color: #5090be; background: rgba(70,140,200,0.05); }
+    .badge-si       { border-color: rgba(70,160,100,0.4); color: #509060; background: rgba(70,160,100,0.05); }
+    .badge-no       { border-color: var(--border); color: var(--muted); }
+
+    /* Action buttons */
+    .actions-cell { display: flex; gap: 0.4rem; align-items: center; }
+
+    .btn-expand, .btn-star, .btn-del {
+      border: 1px solid var(--border);
+      background: none;
+      cursor: pointer;
+      padding: 0.3rem 0.48rem;
+      font-size: 0.9rem;
+      line-height: 1;
+      transition: all 0.18s;
+      border-radius: 2px;
+      color: var(--muted);
+    }
+
+    .btn-expand:hover { border-color: var(--gold); color: var(--gold); }
+    .btn-expand.open { color: var(--gold); border-color: rgba(184,146,42,0.4); background: rgba(184,146,42,0.04); }
+
+    .btn-star { font-size: 1rem; }
+    .btn-star.starred {
+      color: var(--gold);
+      border-color: rgba(184,146,42,0.4);
+      background: rgba(184,146,42,0.05);
+    }
+    .btn-star:hover { border-color: var(--gold); color: var(--gold); }
+
+    .btn-del { border-color: rgba(181,74,74,0.2); color: rgba(181,74,74,0.5); }
+    .btn-del:hover { border-color: var(--danger); color: var(--danger); background: rgba(181,74,74,0.05); }
+
+    /* Detail row */
+    .detail-row td {
+      padding: 0;
+      background: #fafaf8 !important;
+      border-bottom: 1px solid var(--border) !important;
+    }
+
+    .detail-inner {
+      padding: 1.2rem 1.5rem 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem 2rem;
+    }
+
+    @media (max-width: 600px) {
+      .detail-inner { grid-template-columns: 1fr; }
+    }
+
+    .detail-field label {
+      display: block;
+      font-size: 0.58rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+
+    .detail-field p {
+      color: var(--text);
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    .detail-full { grid-column: 1 / -1; }
+
+    /* Empty / Loading */
+    .state-msg {
+      text-align: center;
+      padding: 4rem 2rem;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 1.1rem;
+      color: var(--muted);
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: var(--dark);
+      color: #fff;
+      padding: 0.75rem 1.4rem;
+      font-size: 0.8rem;
+      border-radius: 3px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.28s, transform 0.28s;
+      pointer-events: none;
+      z-index: 999;
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 0.95rem;
+    }
+
+    #toast.show { opacity: 1; transform: translateY(0); }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ───────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <img src="/logo-prestigio.png" alt="Prestigio" class="topbar-logo">
+    <span class="topbar-label">Pannello candidature</span>
+  </div>
+  <div class="topbar-actions">
+    <a href="/admin/api/export" class="btn">⬇ Esporta CSV</a>
+    <a href="/admin/logout" class="btn btn-logout">Esci</a>
+  </div>
+</header>
+
+<!-- ── Main ─────────────────────────────────── -->
+<main class="container">
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Totale</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-interesting">—</div>
+      <div class="stat-label">Interessanti</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-sales">—</div>
+      <div class="stat-label">Sales</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-ecom">—</div>
+      <div class="stat-label">E-commerce</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="filters">
+      <span class="filter-label">Mostra:</span>
+      <button class="filter-btn active" data-filter="all">Tutte</button>
+      <button class="filter-btn" data-filter="interesting">⭐ Interessanti</button>
+      <button class="filter-btn" data-filter="Sales Assistant">Sales</button>
+      <button class="filter-btn" data-filter="E-commerce Support">E-commerce</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div id="state-msg" class="state-msg">Caricamento…</div>
+    <table id="table" style="display:none">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Data</th>
+          <th>Nome</th>
+          <th>Contatti</th>
+          <th>Ruolo</th>
+          <th>Esperienza</th>
+          <th>Come ci ha trovato</th>
+          <th>⭐</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+  let allData = [];
+  let activeFilter = 'all';
+
+  async function load() {
+    try {
+      const res = await fetch('/admin/api/applications');
+      allData = await res.json();
+      updateStats();
+      render();
+    } catch {
+      document.getElementById('state-msg').textContent = 'Errore nel caricamento.';
+    }
+  }
+
+  function updateStats() {
+    document.getElementById('stat-total').textContent = allData.length;
+    document.getElementById('stat-interesting').textContent = allData.filter(a => a.interessante).length;
+    document.getElementById('stat-sales').textContent = allData.filter(a => a.ruolo === 'Sales Assistant').length;
+    document.getElementById('stat-ecom').textContent = allData.filter(a => a.ruolo === 'E-commerce Support').length;
+  }
+
+  function filtered() {
+    if (activeFilter === 'all') return allData;
+    if (activeFilter === 'interesting') return allData.filter(a => a.interessante);
+    return allData.filter(a => a.ruolo === activeFilter);
+  }
+
+  function esc(str) {
+    return String(str || '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function render() {
+    const data = filtered();
+    const stateMsg = document.getElementById('state-msg');
+    const table    = document.getElementById('table');
+    const tbody    = document.getElementById('tbody');
+
+    if (data.length === 0) {
+      stateMsg.style.display = 'block';
+      stateMsg.textContent = 'Nessuna candidatura trovata.';
+      table.style.display = 'none';
+      return;
+    }
+
+    stateMsg.style.display = 'none';
+    table.style.display = 'table';
+    tbody.innerHTML = '';
+
+    data.forEach(a => {
+      /* Main row */
+      const tr = document.createElement('tr');
+      tr.id = `row-${a.id}`;
+      if (a.interessante) tr.classList.add('highlighted');
+
+      const roleBadge = a.ruolo === 'Sales Assistant'
+        ? `<span class="badge badge-sales">Sales</span>`
+        : `<span class="badge badge-ecom">E-com</span>`;
+
+      const espBadge = a.esperienza === 'si'
+        ? `<span class="badge badge-si">Sì</span>`
+        : `<span class="badge badge-no">No</span>`;
+
+      const come = esc(a.come_ci_ha_conosciuto) + (a.altro ? ` – ${esc(a.altro)}` : '');
+
+      tr.innerHTML = `
+        <td>
+          <button class="btn-expand" id="exp-${a.id}" onclick="toggleDetail(${a.id})" title="Dettaglio">▾</button>
+        </td>
+        <td class="td-date">${esc(a.created_at)}</td>
+        <td class="td-name">${esc(a.nome)}</td>
+        <td>
+          <div><a href="mailto:${esc(a.email)}" style="color:inherit;text-decoration:none">${esc(a.email)}</a></div>
+          <div class="td-contact">${esc(a.telefono)}</div>
+        </td>
+        <td>${roleBadge}</td>
+        <td>${espBadge}</td>
+        <td style="color:var(--muted);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${come}">${come}</td>
+        <td>
+          <button class="btn-star ${a.interessante ? 'starred' : ''}"
+            onclick="toggleStar(${a.id})"
+            title="${a.interessante ? 'Rimuovi' : 'Segna come interessante'}"
+          >${a.interessante ? '⭐' : '☆'}</button>
+        </td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn-del" onclick="deleteApp(${a.id})" title="Elimina">✕</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+
+      /* Detail row */
+      const dtr = document.createElement('tr');
+      dtr.id = `detail-${a.id}`;
+      dtr.className = 'detail-row';
+      dtr.style.display = 'none';
+      dtr.innerHTML = `
+        <td colspan="9">
+          <div class="detail-inner">
+            <div class="detail-field">
+              <label>Obiettivo</label>
+              <p>${esc(a.obiettivo) || '—'}</p>
+            </div>
+            <div class="detail-field">
+              <label>Esperienza rilevante</label>
+              <p>${esc(a.descrizione_esperienza) || '—'}</p>
+            </div>
+            <div class="detail-field detail-full">
+              <label>Su di sé</label>
+              <p>${esc(a.descrizione_personale) || '—'}</p>
+            </div>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(dtr);
+    });
+  }
+
+  function toggleDetail(id) {
+    const drow = document.getElementById(`detail-${id}`);
+    const btn  = document.getElementById(`exp-${id}`);
+    const open = drow.style.display !== 'none';
+    drow.style.display = open ? 'none' : 'table-row';
+    btn.classList.toggle('open', !open);
+  }
+
+  async function toggleStar(id) {
+    try {
+      const res  = await fetch(`/admin/api/toggle/${id}`, { method: 'POST' });
+      const data = await res.json();
+      const a = allData.find(x => x.id === id);
+      if (a) a.interessante = data.interessante;
+      updateStats();
+      render();
+      toast(data.interessante ? 'Segnata come interessante.' : 'Segnalazione rimossa.');
+    } catch { toast('Errore.'); }
+  }
+
+  async function deleteApp(id) {
+    if (!confirm('Eliminare questa candidatura definitivamente?')) return;
+    try {
+      await fetch(`/admin/api/delete/${id}`, { method: 'DELETE' });
+      allData = allData.filter(a => a.id !== id);
+      updateStats();
+      render();
+      toast('Candidatura eliminata.');
+    } catch { toast('Errore durante l\'eliminazione.'); }
+  }
+
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  load();
+</script>
+</body>
+</html>
