@@ -1,13 +1,14 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+import csv
+import io
 
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
-# Database SQLite
 db_path = "/opt/render/project/src/applications.db"
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -32,6 +33,8 @@ class JobApplication(db.Model):
     attitude = db.Column(db.Text, nullable=True)
     how_found = db.Column(db.String(100), nullable=True)
     how_found_other = db.Column(db.String(255), nullable=True)
+
+    interesting = db.Column(db.Boolean, default=False, nullable=False)
 
 
 @app.route("/", methods=["GET"])
@@ -97,8 +100,103 @@ def candidatura_prestigio_apply():
 @app.route("/admin", methods=["GET"])
 @app.route("/join-our-team/elenco", methods=["GET"])
 def candidatura_list():
+    return render_template("admin.html")
+
+
+@app.route("/admin/api/applications", methods=["GET"])
+def admin_api_applications():
     jobs = JobApplication.query.order_by(JobApplication.created_at.desc()).all()
-    return render_template("admin.html", applications=jobs)
+
+    results = []
+    for job in jobs:
+        results.append({
+            "id": job.id,
+            "created_at": job.created_at.strftime("%d/%m/%Y %H:%M"),
+            "nome": job.full_name,
+            "email": job.email,
+            "telefono": job.phone,
+            "obiettivo": job.what_you_want or "",
+            "ruolo": job.role,
+            "esperienza": job.has_experience,
+            "descrizione_esperienza": job.experience_summary or "",
+            "descrizione_personale": job.attitude or "",
+            "come_ci_ha_conosciuto": job.how_found or "",
+            "altro": job.how_found_other or "",
+            "interessante": job.interesting,
+        })
+
+    return jsonify(results), 200
+
+
+@app.route("/admin/api/toggle/<int:application_id>", methods=["POST"])
+def admin_api_toggle(application_id):
+    job = JobApplication.query.get_or_404(application_id)
+    job.interesting = not job.interesting
+    db.session.commit()
+    return jsonify({"success": True, "interessante": job.interesting}), 200
+
+
+@app.route("/admin/api/delete/<int:application_id>", methods=["DELETE"])
+def admin_api_delete(application_id):
+    job = JobApplication.query.get_or_404(application_id)
+    db.session.delete(job)
+    db.session.commit()
+    return jsonify({"success": True}), 200
+
+
+@app.route("/admin/api/export", methods=["GET"])
+def admin_api_export():
+    jobs = JobApplication.query.order_by(JobApplication.created_at.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "ID",
+        "Data creazione",
+        "Nome completo",
+        "Email",
+        "Telefono",
+        "Obiettivo",
+        "Ruolo",
+        "Esperienza",
+        "Descrizione esperienza",
+        "Descrizione personale",
+        "Come ci ha conosciuto",
+        "Altro",
+        "Interessante",
+    ])
+
+    for job in jobs:
+        writer.writerow([
+            job.id,
+            job.created_at.strftime("%d/%m/%Y %H:%M"),
+            job.full_name,
+            job.email,
+            job.phone,
+            job.what_you_want or "",
+            job.role,
+            job.has_experience,
+            job.experience_summary or "",
+            job.attitude or "",
+            job.how_found or "",
+            job.how_found_other or "",
+            "Sì" if job.interesting else "No",
+        ])
+
+    csv_data = output.getvalue()
+    output.close()
+
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=candidature_prestigio.csv"}
+    )
+
+
+@app.route("/admin/logout", methods=["GET"])
+def admin_logout():
+    return redirect(url_for("candidatura_prestigio"))
 
 
 @app.route("/join-our-team/<int:application_id>", methods=["GET"])
@@ -117,6 +215,7 @@ def candidatura_detail(application_id):
         "attitude": app_job.attitude,
         "how_found": app_job.how_found,
         "how_found_other": app_job.how_found_other,
+        "interesting": app_job.interesting,
     })
 
 
