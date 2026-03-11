@@ -90,11 +90,51 @@ def candidatura_prestigio():
 
 @app.route("/join-our-team/apply", methods=["POST"])
 def candidatura_prestigio_apply():
-    required = ["fullName", "email", "phone", "role", "hasExperience"]
-    missing = [f for f in required if not request.form.get(f)]
-    if missing:
-        flash("Compila tutti i campi obbligatori.", "error")
-        return redirect(url_for("candidatura_prestigio"))
+    data = request.get_json(silent=True) or {}
+
+    nome = (data.get("nome") or "").strip()
+    email = (data.get("email") or "").strip()
+    telefono = (data.get("telefono") or "").strip()
+    ruolo = (data.get("ruolo") or "").strip()
+    esperienza = (data.get("esperienza") or "").strip()
+    descrizione_esperienza = (data.get("descrizione_esperienza") or "").strip()
+    descrizione_personale = (data.get("descrizione_personale") or "").strip()
+    come_ci_ha_conosciuto = (data.get("come_ci_ha_conosciuto") or "").strip()
+    altro = (data.get("altro") or "").strip()
+    obiettivo = (data.get("obiettivo") or "").strip()
+
+    if not nome or not email or not telefono or not ruolo or not esperienza:
+        return {"success": False, "message": "Compila tutti i campi obbligatori."}, 400
+
+    parts = nome.split()
+    first_name = parts[0] if parts else ""
+    last_name = " ".join(parts[1:]) if len(parts) > 1 else ""
+
+    application = Application(
+        first_name=first_name or nome,
+        last_name=last_name or "-",
+        date_of_birth="-",
+        birth_place="-",
+        address="-",
+        phone=telefono,
+        email=email,
+        highest_degree="-",
+        institution="-",
+        field_of_study=None,
+        graduation_year=None,
+        training=None,
+        technical_skills=None,
+        technical_skills_other=None,
+        soft_skills=None,
+        soft_skills_other=None,
+        experience_jewelry=descrizione_esperienza or esperienza,
+        motivation=descrizione_personale or obiettivo or f"Ruolo: {ruolo}; Come ci ha conosciuto: {come_ci_ha_conosciuto}; Altro: {altro}"
+    )
+
+    db.session.add(application)
+    db.session.commit()
+
+    return {"success": True, "message": "Candidatura inviata con successo."}, 200
 
     app_job = JobApplication(
         full_name=request.form.get("fullName", "").strip(),
