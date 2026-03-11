@@ -175,7 +175,9 @@ def apply():
     flash("Thank you. Your application has been received.", "success")
     return redirect(url_for("index"))
 
+with app.app_context():
+    db.create_all()
+
 if __name__ == "__main__":
-    create_tables()
     app.run(debug=True)
 
