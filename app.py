@@ -1,40 +1,39 @@
 from flask import Flask, render_template, request, jsonify, Response, redirect, url_for
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
 import csv
 import io
+import json
+import gspread
+from google.oauth2.service_account import Credentials
 
 app = Flask(__name__)
-
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
-db_path = "/opt/render/project/src/applications.db"
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+SHEET_NAME = "Prestigio Candidature"
 
-db = SQLAlchemy(app)
+# --- Google Sheets setup ---
+def get_sheet():
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
 
+    # 1) Preferisce credenziali da variabile ambiente (Render)
+    creds_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 
-class JobApplication(db.Model):
-    __tablename__ = "job_applications"
+    if creds_json:
+        creds_dict = json.loads(creds_json)
+        credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    else:
+        # 2) Fallback locale: file JSON sul computer/server
+        credentials = Credentials.from_service_account_file(
+            "prestigio-candidature-d1aeb5c4206b.json",
+            scopes=scopes
+        )
 
-    id = db.Column(db.Integer, primary_key=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-
-    full_name = db.Column(db.String(150), nullable=False)
-    email = db.Column(db.String(150), nullable=False)
-    phone = db.Column(db.String(50), nullable=False)
-
-    what_you_want = db.Column(db.Text, nullable=True)
-    role = db.Column(db.String(100), nullable=False)
-    has_experience = db.Column(db.String(20), nullable=False)
-    experience_summary = db.Column(db.Text, nullable=True)
-    attitude = db.Column(db.Text, nullable=True)
-    how_found = db.Column(db.String(100), nullable=True)
-    how_found_other = db.Column(db.String(255), nullable=True)
-
-    interesting = db.Column(db.Boolean, default=False, nullable=False)
+    client = gspread.authorize(credentials)
+    return client.open(SHEET_NAME).sheet1
 
 
 @app.route("/", methods=["GET"])
@@ -67,21 +66,23 @@ def candidatura_prestigio_apply():
         }), 400
 
     try:
-        app_job = JobApplication(
-            full_name=nome,
-            email=email,
-            phone=telefono,
-            what_you_want=obiettivo or None,
-            role=ruolo,
-            has_experience=esperienza,
-            experience_summary=descrizione_esperienza or None,
-            attitude=descrizione_personale or None,
-            how_found=come_ci_ha_conosciuto or None,
-            how_found_other=altro or None,
-        )
+        sheet = get_sheet()
+        now_str = datetime.utcnow().strftime("%d/%m/%Y %H:%M:%S")
 
-        db.session.add(app_job)
-        db.session.commit()
+        sheet.append_row([
+            now_str,
+            nome,
+            email,
+            telefono,
+            obiettivo,
+            ruolo,
+            esperienza,
+            descrizione_esperienza,
+            descrizione_personale,
+            come_ci_ha_conosciuto,
+            altro,
+            "False"
+        ])
 
         return jsonify({
             "success": True,
@@ -89,8 +90,7 @@ def candidatura_prestigio_apply():
         }), 200
 
     except Exception as e:
-        db.session.rollback()
-        app.logger.exception("Errore durante il salvataggio della candidatura")
+        app.logger.exception("Errore durante il salvataggio della candidatura su Google Sheets")
         return jsonify({
             "success": False,
             "message": f"Errore server: {str(e)}"
@@ -105,122 +105,109 @@ def candidatura_list():
 
 @app.route("/admin/api/applications", methods=["GET"])
 def admin_api_applications():
-    jobs = JobApplication.query.order_by(JobApplication.created_at.desc()).all()
+    try:
+        sheet = get_sheet()
+        rows = sheet.get_all_records()
 
-    results = []
-    for job in jobs:
-        results.append({
-            "id": job.id,
-            "created_at": job.created_at.strftime("%d/%m/%Y %H:%M"),
-            "nome": job.full_name,
-            "email": job.email,
-            "telefono": job.phone,
-            "obiettivo": job.what_you_want or "",
-            "ruolo": job.role,
-            "esperienza": job.has_experience,
-            "descrizione_esperienza": job.experience_summary or "",
-            "descrizione_personale": job.attitude or "",
-            "come_ci_ha_conosciuto": job.how_found or "",
-            "altro": job.how_found_other or "",
-            "interessante": job.interesting,
-        })
+        results = []
+        # ultima riga in alto
+        for idx, row in enumerate(reversed(rows), start=1):
+            results.append({
+                "id": len(rows) - idx + 2,  # indice riga sheet approssimato
+                "created_at": row.get("created_at", ""),
+                "nome": row.get("full_name", ""),
+                "email": row.get("email", ""),
+                "telefono": row.get("phone", ""),
+                "obiettivo": row.get("what_you_want", ""),
+                "ruolo": row.get("role", ""),
+                "esperienza": row.get("has_experience", ""),
+                "descrizione_esperienza": row.get("experience_summary", ""),
+                "descrizione_personale": row.get("attitude", ""),
+                "come_ci_ha_conosciuto": row.get("how_found", ""),
+                "altro": row.get("how_found_other", ""),
+                "interessante": str(row.get("interesting", "False")).lower() == "true",
+            })
 
-    return jsonify(results), 200
+        return jsonify(results), 200
 
-
-@app.route("/admin/api/toggle/<int:application_id>", methods=["POST"])
-def admin_api_toggle(application_id):
-    job = JobApplication.query.get_or_404(application_id)
-    job.interesting = not job.interesting
-    db.session.commit()
-    return jsonify({"success": True, "interessante": job.interesting}), 200
-
-
-@app.route("/admin/api/delete/<int:application_id>", methods=["DELETE"])
-def admin_api_delete(application_id):
-    job = JobApplication.query.get_or_404(application_id)
-    db.session.delete(job)
-    db.session.commit()
-    return jsonify({"success": True}), 200
+    except Exception as e:
+        app.logger.exception("Errore lettura candidature da Google Sheets")
+        return jsonify([]), 200
 
 
 @app.route("/admin/api/export", methods=["GET"])
 def admin_api_export():
-    jobs = JobApplication.query.order_by(JobApplication.created_at.desc()).all()
+    try:
+        sheet = get_sheet()
+        rows = sheet.get_all_records()
 
-    output = io.StringIO()
-    writer = csv.writer(output)
+        output = io.StringIO()
+        writer = csv.writer(output)
 
-    writer.writerow([
-        "ID",
-        "Data creazione",
-        "Nome completo",
-        "Email",
-        "Telefono",
-        "Obiettivo",
-        "Ruolo",
-        "Esperienza",
-        "Descrizione esperienza",
-        "Descrizione personale",
-        "Come ci ha conosciuto",
-        "Altro",
-        "Interessante",
-    ])
-
-    for job in jobs:
         writer.writerow([
-            job.id,
-            job.created_at.strftime("%d/%m/%Y %H:%M"),
-            job.full_name,
-            job.email,
-            job.phone,
-            job.what_you_want or "",
-            job.role,
-            job.has_experience,
-            job.experience_summary or "",
-            job.attitude or "",
-            job.how_found or "",
-            job.how_found_other or "",
-            "Sì" if job.interesting else "No",
+            "Data creazione",
+            "Nome completo",
+            "Email",
+            "Telefono",
+            "Obiettivo",
+            "Ruolo",
+            "Esperienza",
+            "Descrizione esperienza",
+            "Descrizione personale",
+            "Come ci ha conosciuto",
+            "Altro",
+            "Interessante",
         ])
 
-    csv_data = output.getvalue()
-    output.close()
+        for row in rows:
+            writer.writerow([
+                row.get("created_at", ""),
+                row.get("full_name", ""),
+                row.get("email", ""),
+                row.get("phone", ""),
+                row.get("what_you_want", ""),
+                row.get("role", ""),
+                row.get("has_experience", ""),
+                row.get("experience_summary", ""),
+                row.get("attitude", ""),
+                row.get("how_found", ""),
+                row.get("how_found_other", ""),
+                row.get("interesting", ""),
+            ])
 
-    return Response(
-        csv_data,
-        mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=candidature_prestigio.csv"}
-    )
+        csv_data = output.getvalue()
+        output.close()
+
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=candidature_prestigio.csv"}
+        )
+
+    except Exception as e:
+        app.logger.exception("Errore export CSV")
+        return Response("Errore durante l'export", status=500)
+
+
+@app.route("/admin/api/toggle/<int:application_id>", methods=["POST"])
+def admin_api_toggle(application_id):
+    return jsonify({
+        "success": False,
+        "message": "Funzione toggle non ancora attiva con Google Sheets."
+    }), 501
+
+
+@app.route("/admin/api/delete/<int:application_id>", methods=["DELETE"])
+def admin_api_delete(application_id):
+    return jsonify({
+        "success": False,
+        "message": "Funzione delete non ancora attiva con Google Sheets."
+    }), 501
 
 
 @app.route("/admin/logout", methods=["GET"])
 def admin_logout():
     return redirect(url_for("candidatura_prestigio"))
-
-
-@app.route("/join-our-team/<int:application_id>", methods=["GET"])
-def candidatura_detail(application_id):
-    app_job = JobApplication.query.get_or_404(application_id)
-    return jsonify({
-        "id": app_job.id,
-        "created_at": app_job.created_at.isoformat(),
-        "full_name": app_job.full_name,
-        "email": app_job.email,
-        "phone": app_job.phone,
-        "what_you_want": app_job.what_you_want,
-        "role": app_job.role,
-        "has_experience": app_job.has_experience,
-        "experience_summary": app_job.experience_summary,
-        "attitude": app_job.attitude,
-        "how_found": app_job.how_found,
-        "how_found_other": app_job.how_found_other,
-        "interesting": app_job.interesting,
-    })
-
-
-with app.app_context():
-    db.create_all()
 
 
 if __name__ == "__main__":
