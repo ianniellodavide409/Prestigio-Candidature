@@ -81,25 +81,6 @@ def candidatura_prestigio_apply():
     if not data:
         data = request.form.to_dict(flat=True)
 
-    # honeypot anti-bot
-    website = (data.get("website") or "").strip()
-    if website:
-        return jsonify({
-            "success": False,
-            "message": "Invio non valido."
-        }), 400
-
-    ip = get_client_ip()
-    now = datetime.utcnow()
-
-    # anti-spam leggero: max 1 invio ogni 20 secondi per IP
-    last_seen = LAST_SUBMISSIONS.get(ip)
-    if last_seen and (now - last_seen) < timedelta(seconds=20):
-        return jsonify({
-            "success": False,
-            "message": "Hai appena inviato una candidatura. Attendi qualche secondo e riprova."
-        }), 429
-
     nome = (data.get("nome") or data.get("fullName") or "").strip()
     email = (data.get("email") or "").strip()
     telefono = (data.get("telefono") or data.get("phone") or "").strip()
@@ -156,6 +137,8 @@ def candidatura_prestigio_apply():
         sheet = get_sheet()
         now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
+        app.logger.info("Inizio salvataggio candidatura su Google Sheets")
+
         sheet.append_row([
             now_str,
             nome,
@@ -171,20 +154,19 @@ def candidatura_prestigio_apply():
             "False"
         ])
 
-        LAST_SUBMISSIONS[ip] = now
+        app.logger.info("Candidatura salvata correttamente su Google Sheets")
 
         return jsonify({
             "success": True,
             "message": "Candidatura inviata con successo."
         }), 200
 
-    except Exception as e:
+    except Exception:
         app.logger.exception("Errore durante il salvataggio della candidatura su Google Sheets")
         return jsonify({
             "success": False,
             "message": "Errore server durante il salvataggio."
         }), 500
-
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
