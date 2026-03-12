@@ -535,27 +535,44 @@
   }
 
   async function toggleStar(id) {
-    try {
-      const res  = await fetch(`/admin/api/toggle/${id}`, { method: 'POST' });
-      const data = await res.json();
-      const a = allData.find(x => x.id === id);
-      if (a) a.interessante = data.interessante;
-      updateStats();
-      render();
-      toast(data.interessante ? 'Segnata come interessante.' : 'Segnalazione rimossa.');
-    } catch { toast('Errore.'); }
+  try {
+    const res = await fetch(`/admin/api/toggle/${id}`, { method: 'POST' });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Errore aggiornamento.');
+    }
+
+    const a = allData.find(x => x.id === id);
+    if (a) a.interessante = data.interessante;
+
+    updateStats();
+    render();
+    toast(data.interessante ? 'Segnata come interessante.' : 'Segnalazione rimossa.');
+  } catch (err) {
+    toast(err.message || 'Errore.');
   }
+}
 
   async function deleteApp(id) {
-    if (!confirm('Eliminare questa candidatura definitivamente?')) return;
-    try {
-      await fetch(`/admin/api/delete/${id}`, { method: 'DELETE' });
-      allData = allData.filter(a => a.id !== id);
-      updateStats();
-      render();
-      toast('Candidatura eliminata.');
-    } catch { toast('Errore durante l\'eliminazione.'); }
+  if (!confirm('Eliminare questa candidatura definitivamente?')) return;
+
+  try {
+    const res = await fetch(`/admin/api/delete/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Errore durante eliminazione.');
+    }
+
+    allData = allData.filter(a => a.id !== id);
+    updateStats();
+    render();
+    toast('Candidatura eliminata.');
+  } catch (err) {
+    toast(err.message || 'Errore durante l\'eliminazione.');
   }
+}
 
   let toastTimer;
   function toast(msg) {
