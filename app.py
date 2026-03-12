@@ -10,30 +10,27 @@ from google.oauth2.service_account import Credentials
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
-SHEET_NAME = "Prestigio Candidature"
+SPREADSHEET_ID = "1D99OBEH-0s186n279kghjZEcK43a6RtC5MVfKnT-cMs"
 
-# --- Google Sheets setup ---
+
 def get_sheet():
     scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/spreadsheets"
     ]
 
-    # 1) Preferisce credenziali da variabile ambiente (Render)
     creds_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
 
     if creds_json:
         creds_dict = json.loads(creds_json)
         credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     else:
-        # 2) Fallback locale: file JSON sul computer/server
         credentials = Credentials.from_service_account_file(
             "prestigio-candidature-d1aeb5c4206b.json",
             scopes=scopes
         )
 
     client = gspread.authorize(credentials)
-    return client.open(SHEET_NAME).sheet1
+    return client.open_by_key(SPREADSHEET_ID).sheet1
 
 
 @app.route("/", methods=["GET"])
@@ -110,10 +107,9 @@ def admin_api_applications():
         rows = sheet.get_all_records()
 
         results = []
-        # ultima riga in alto
         for idx, row in enumerate(reversed(rows), start=1):
             results.append({
-                "id": len(rows) - idx + 2,  # indice riga sheet approssimato
+                "id": len(rows) - idx + 2,
                 "created_at": row.get("created_at", ""),
                 "nome": row.get("full_name", ""),
                 "email": row.get("email", ""),
@@ -132,7 +128,10 @@ def admin_api_applications():
 
     except Exception as e:
         app.logger.exception("Errore lettura candidature da Google Sheets")
-        return jsonify([]), 200
+        return jsonify({
+            "success": False,
+            "message": f"Errore lettura candidature: {str(e)}"
+        }), 500
 
 
 @app.route("/admin/api/export", methods=["GET"])
@@ -186,7 +185,7 @@ def admin_api_export():
 
     except Exception as e:
         app.logger.exception("Errore export CSV")
-        return Response("Errore durante l'export", status=500)
+        return Response(f"Errore durante l'export: {str(e)}", status=500)
 
 
 @app.route("/admin/api/toggle/<int:application_id>", methods=["POST"])
