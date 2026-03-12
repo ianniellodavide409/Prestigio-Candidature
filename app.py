@@ -77,67 +77,35 @@ def candidatura_prestigio():
 
 @app.route("/join-our-team/apply", methods=["POST"])
 def candidatura_prestigio_apply():
-    data = request.get_json(silent=True)
-    if not data:
-        data = request.form.to_dict(flat=True)
-
-    nome = (data.get("nome") or data.get("fullName") or "").strip()
-    email = (data.get("email") or "").strip()
-    telefono = (data.get("telefono") or data.get("phone") or "").strip()
-    obiettivo = (data.get("obiettivo") or data.get("whatYouWant") or "").strip()
-    ruolo = (data.get("ruolo") or data.get("role") or "").strip()
-    esperienza = (data.get("esperienza") or data.get("hasExperience") or "").strip()
-    descrizione_esperienza = (data.get("descrizione_esperienza") or data.get("experienceSummary") or "").strip()
-    descrizione_personale = (data.get("descrizione_personale") or data.get("attitude") or "").strip()
-    come_ci_ha_conosciuto = (data.get("come_ci_ha_conosciuto") or data.get("howFound") or "").strip()
-    altro = (data.get("altro") or data.get("howFoundOther") or "").strip()
-
-    if not nome or not email or not telefono or not ruolo or not esperienza:
-        return jsonify({
-            "success": False,
-            "message": "Compila tutti i campi obbligatori."
-        }), 400
-
-    if not EMAIL_REGEX.match(email):
-        return jsonify({
-            "success": False,
-            "message": "Email non valida."
-        }), 400
-
-    if not PHONE_REGEX.match(telefono):
-        return jsonify({
-            "success": False,
-            "message": "Numero di telefono non valido."
-        }), 400
-
-    if ruolo not in ["Sales Assistant", "E-commerce Support"]:
-        return jsonify({
-            "success": False,
-            "message": "Ruolo non valido."
-        }), 400
-
-    if esperienza not in ["si", "no"]:
-        return jsonify({
-            "success": False,
-            "message": "Valore esperienza non valido."
-        }), 400
-
-    long_fields = [
-        nome, email, telefono, obiettivo, ruolo, esperienza,
-        descrizione_esperienza, descrizione_personale,
-        come_ci_ha_conosciuto, altro
-    ]
-    if not all(validate_text_length(v, 500) for v in long_fields):
-        return jsonify({
-            "success": False,
-            "message": "Uno o più campi sono troppo lunghi."
-        }), 400
-
     try:
+        data = request.get_json(silent=True)
+        if not data:
+            data = request.form.to_dict(flat=True)
+
+        nome = (data.get("nome") or "").strip()
+        email = (data.get("email") or "").strip()
+        telefono = (data.get("telefono") or "").strip()
+        obiettivo = (data.get("obiettivo") or "").strip()
+        ruolo = (data.get("ruolo") or "").strip()
+        esperienza = (data.get("esperienza") or "").strip()
+        descrizione_esperienza = (data.get("descrizione_esperienza") or "").strip()
+        descrizione_personale = (data.get("descrizione_personale") or "").strip()
+        come_ci_ha_conosciuto = (data.get("come_ci_ha_conosciuto") or "").strip()
+        altro = (data.get("altro") or "").strip()
+
+        app.logger.info("Richiesta candidatura ricevuta")
+
+        if not nome or not email or not telefono or not ruolo or not esperienza:
+            app.logger.warning("Campi obbligatori mancanti")
+            return jsonify({
+                "success": False,
+                "message": "Compila tutti i campi obbligatori."
+            }), 400
+
         sheet = get_sheet()
         now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-        app.logger.info("Inizio salvataggio candidatura su Google Sheets")
+        app.logger.info("Inizio append su Google Sheets")
 
         sheet.append_row([
             now_str,
@@ -154,20 +122,19 @@ def candidatura_prestigio_apply():
             "False"
         ])
 
-        app.logger.info("Candidatura salvata correttamente su Google Sheets")
+        app.logger.info("Append completato su Google Sheets")
 
         return jsonify({
             "success": True,
             "message": "Candidatura inviata con successo."
         }), 200
 
-    except Exception:
-        app.logger.exception("Errore durante il salvataggio della candidatura su Google Sheets")
+    except Exception as e:
+        app.logger.exception("Errore durante il salvataggio candidatura")
         return jsonify({
             "success": False,
-            "message": "Errore server durante il salvataggio."
+            "message": f"Errore server: {str(e)}"
         }), 500
-
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = ""
