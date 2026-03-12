@@ -748,17 +748,18 @@ document.addEventListener('DOMContentLoaded', () => {
     submitBtn.querySelector('span').innerHTML = '<span class="spinner"></span>Invio in corso…';
 
     const payload = {
-      nome:                   document.getElementById('nome').value.trim(),
-      email:                  document.getElementById('email').value.trim(),
-      telefono:               document.getElementById('telefono').value.trim(),
-      obiettivo:              document.getElementById('obiettivo').value.trim(),
-      ruolo:                  document.querySelector('input[name="ruolo"]:checked')?.value || '',
-      esperienza:             document.querySelector('input[name="esperienza"]:checked')?.value || '',
-      descrizione_esperienza: document.getElementById('descrizione_esperienza').value.trim(),
-      descrizione_personale:  document.getElementById('descrizione_personale').value.trim(),
-      come_ci_ha_conosciuto:  document.getElementById('come_ci_ha_conosciuto').value,
-      altro:                  document.getElementById('altro').value.trim(),
-    };
+  nome:                   document.getElementById('nome').value.trim(),
+  email:                  document.getElementById('email').value.trim(),
+  telefono:               document.getElementById('telefono').value.trim(),
+  obiettivo:              document.getElementById('obiettivo').value.trim(),
+  ruolo:                  document.querySelector('input[name="ruolo"]:checked')?.value || '',
+  esperienza:             document.querySelector('input[name="esperienza"]:checked')?.value || '',
+  descrizione_esperienza: document.getElementById('descrizione_esperienza').value.trim(),
+  descrizione_personale:  document.getElementById('descrizione_personale').value.trim(),
+  come_ci_ha_conosciuto:  document.getElementById('come_ci_ha_conosciuto').value,
+  altro:                  document.getElementById('altro').value.trim(),
+  website:                document.getElementById('website').value.trim(),
+};
 
     try {
       const res = await fetch('/join-our-team/apply', {
